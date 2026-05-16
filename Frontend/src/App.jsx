@@ -5,7 +5,9 @@ import Admin from "./pages/Admin";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import MyProfile from "./pages/MyProfile";
-import ProtectedRoute from "./components/ProtectedRoute"; 
+import ProtectedRoute from "./components/ProtectedRoute";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -15,7 +17,9 @@ function App() {
         {/* Rutas públicas */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        
         {/* Rutas Users */}
         <Route path="/home" element={<Home/>}/>
         <Route path="/profile/:id" element={<Profile />}/>
@@ -24,10 +28,12 @@ function App() {
         {/* Ruta admin */}
         <Route
           path="/Admin"
-            element={
-          <ProtectedRoute>
-            <Admin />
-          </ProtectedRoute>}/>
+          element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Redirección si no existe la ruta */}
         <Route path="*" element={<Navigate to="/" />} />

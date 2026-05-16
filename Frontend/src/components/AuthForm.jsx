@@ -36,6 +36,13 @@ export default function AuthForm({
                 onChange={(e) => setPassword(e.target.value)}
             />
 
+            <Link 
+                to="/forgot-password"
+                className="text-xs text-black-600 hover:underline block text-right"
+            >
+                ¿Olvidaste tu contraseña?
+            </Link>
+
             <Button
                 text={isRegister ? "Crear cuenta" : "Iniciar sesión"}
                 onClick={onSubmit}
