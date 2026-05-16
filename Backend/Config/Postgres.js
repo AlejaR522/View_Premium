@@ -1,15 +1,14 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  host: process.env.PG_HOST,
-  port: process.env.PG_PORT,
-  database: process.env.PG_DATABASE,
-  user: process.env.PG_USER,
-  password: process.env.PG_PASSWORD,
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('neon.tech') 
+    ? { rejectUnauthorized: false }
+    : false
 });
 
 pool.connect()
-  .then(() => console.log('✅ PostgreSQL conectado'))
-  .catch(err => console.error('❌ Error PostgreSQL:', err.message));
+  .then(() => console.log('✅ Neon PostgreSQL conectado'))
+  .catch(err => console.error('❌ Error Neon:', err.message));
 
 module.exports = pool;
