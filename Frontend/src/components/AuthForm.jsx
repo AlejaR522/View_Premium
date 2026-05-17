@@ -8,9 +8,12 @@ export default function AuthForm({
     setNombre,
     correo,
     setCorreo,
+    correoError,
     password,
     setPassword,
     onSubmit,
+    submitText,
+    disabled = false,
 }) {
     return (
         <div className="w-full max-w-xs sm:max-w-sm md:max-w-md space-y-3 sm:space-y-4">
@@ -28,6 +31,9 @@ export default function AuthForm({
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
             />
+            {correoError && (
+                <p className="text-xs text-red-600">{correoError}</p>
+            )}
 
             <Input
                 type="password"
@@ -36,7 +42,7 @@ export default function AuthForm({
                 onChange={(e) => setPassword(e.target.value)}
             />
 
-            <Link 
+            <Link
                 to="/forgot-password"
                 className="text-xs text-black-600 hover:underline block text-right"
             >
@@ -44,8 +50,9 @@ export default function AuthForm({
             </Link>
 
             <Button
-                text={isRegister ? "Crear cuenta" : "Iniciar sesión"}
+                text={submitText || (isRegister ? "Crear cuenta" : "Iniciar sesión")}
                 onClick={onSubmit}
+                disabled={disabled}
             />
             <div className="text-center text-xs sm:text-sm mt-4 sm:mt-5 space-y-2">
                 {isRegister ? (

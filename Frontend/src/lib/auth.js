@@ -18,6 +18,27 @@ export const register = async (nombre, email, password) => {
   return data;
 };
 
+export const verifyEmail = async (token) => {
+  const data = await api(`/auth/verify-email/${encodeURIComponent(token)}`);
+  return data;
+};
+
+export const forgotPassword = async (email) => {
+  const data = await api('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  return data;
+};
+
+export const resetPassword = async (token, password) => {
+  const data = await api(`/auth/reset-password/${encodeURIComponent(token)}`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+  return data;
+};
+
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
