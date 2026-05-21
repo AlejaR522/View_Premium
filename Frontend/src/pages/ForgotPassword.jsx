@@ -11,19 +11,36 @@ export default function ForgotPassword() {
     const [enviando, setEnviando] = useState(false);
 
     const handleSubmit = async () => {
-        if (enviando) return;
 
-        setMensaje("");
-        setError("");
-        setEnviando(true);
+    try {
 
-        try {
-            const data = await forgotPassword(correo);
-            setMensaje(data.mensaje);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setEnviando(false);
+        const response = await fetch(
+            "http://localhost:5000/api/auth/forgot-password",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email: correo,
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.error);
+            return;
+        }
+
+        alert(data.mensaje);
+
+        } catch (error) {
+
+            console.log(error);
+
+            alert("Error del servidor");
         }
     };
 

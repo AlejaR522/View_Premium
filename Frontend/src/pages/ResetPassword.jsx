@@ -15,30 +15,45 @@ export default function ResetPassword() {
     const [error, setError] = useState("");
     const [enviando, setEnviando] = useState(false);
 
-    const handleSubmit = async () => {
-        if (enviando) return;
+const handleSubmit = async () => {
 
-        setMensaje("");
-        setError("");
+    if (password !== confirmPassword) {
+        alert("Las contraseñas no coinciden");
+        return;
+    }
 
-        if (password !== confirmPassword) {
-            setError("Las contraseñas no coinciden");
+    try {
+
+        const response = await fetch(
+            `http://localhost:5000/api/auth/reset-password/${token}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    password,
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.error);
             return;
         }
 
-        setEnviando(true);
+        alert(data.mensaje);
 
-        try {
-            const data = await resetPassword(token, password);
-            setMensaje(data.mensaje);
-            setPassword("");
-            setConfirmPassword("");
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setEnviando(false);
-        }
-    };
+    } catch (error) {
+
+        console.log(error);
+
+        alert("Error del servidor");
+        navigate("/");
+    }
+};
 
     return (
         <div className="min-h-screen flex items-center justify-center px-4">

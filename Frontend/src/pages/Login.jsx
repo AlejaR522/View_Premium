@@ -50,7 +50,7 @@ export default function Login() {
             {/* Mensaje de verificación exitosa */}
             {verificado && (
                 <div className="w-full max-w-xs sm:max-w-sm md:max-w-md mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 text-center">
-                    ✅ ¡Cuenta verificada! Ya puedes iniciar sesión.
+                    ¡Cuenta verificada! Ya puedes iniciar sesión.
                 </div>
             )}
 

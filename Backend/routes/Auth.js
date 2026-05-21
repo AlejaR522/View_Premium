@@ -32,7 +32,7 @@ const ensureVerifiedColumn = async () => {
     UPDATE users
     SET email_verificado = true
     WHERE email_verificado IS NULL
-       OR rol = 'admin'
+      OR rol = 'admin'
   `);
 };
 
@@ -111,9 +111,9 @@ const readVerificationToken = (token) => {
 const verifyExistingUserByToken = async (token) => {
   const result = await pool.query(
     `UPDATE users
-     SET email_verificado = true, verification_token = null
-     WHERE verification_token = $1
-     RETURNING id`,
+      SET email_verificado = true, verification_token = null
+      WHERE verification_token = $1
+      RETURNING id`,
     [token]
   );
 
@@ -157,14 +157,14 @@ router.post('/register', async (req, res) => {
     await pool.query(
       `INSERT INTO users
         (nombre, email, password_hash, rol, es_premium, email_verificado, verification_token)
-       VALUES ($1, $2, $3, 'user', false, false, $4)
-       ON CONFLICT (email)
-       DO UPDATE SET
-         nombre = EXCLUDED.nombre,
-         password_hash = EXCLUDED.password_hash,
-         email_verificado = false,
-         verification_token = EXCLUDED.verification_token
-       WHERE users.email_verificado = false`,
+        VALUES ($1, $2, $3, 'user', false, false, $4)
+        ON CONFLICT (email)
+        DO UPDATE SET
+          nombre = EXCLUDED.nombre,
+          password_hash = EXCLUDED.password_hash,
+          email_verificado = false,
+          verification_token = EXCLUDED.verification_token
+        WHERE users.email_verificado = false`,
       [nombre, email, hash, verificationToken]
     );
 
@@ -178,7 +178,7 @@ router.post('/register', async (req, res) => {
           <p>Gracias por registrarte en <strong>View App</strong>.</p>
           <p>Haz clic en el boton para verificar tu correo:</p>
           <a href="${verificationUrl}"
-             style="display: inline-block; background: #000; color: #fff;
+            style="display: inline-block; background: #000; color: #fff;
                     padding: 12px 24px; border-radius: 24px;
                     text-decoration: none; font-weight: bold; margin: 16px 0;">
             Verificar mi cuenta
@@ -249,7 +249,7 @@ router.get('/verify-email/:token', async (req, res) => {
     await pool.query(
       `INSERT INTO users
         (nombre, email, password_hash, rol, es_premium, email_verificado)
-       VALUES ($1, $2, $3, 'user', false, true)`,
+        VALUES ($1, $2, $3, 'user', false, true)`,
       [pendingUser.nombre, email, pendingUser.password_hash]
     );
 
@@ -343,7 +343,7 @@ router.post('/forgot-password', async (req, res) => {
     const user = result.rows[0];
 
     if (!user) {
-      return res.status(404).json({ error: 'No existe una cuenta con ese correo' });
+      return res.status(404).json({ error: 'Si el correo existe, enviaremos un enlace' });
     }
 
     if (user.email_verificado === false && user.rol !== 'admin') {
@@ -355,9 +355,9 @@ router.post('/forgot-password', async (req, res) => {
 
     await pool.query(
       `UPDATE users
-       SET reset_token = $1,
-           reset_token_expires = NOW() + INTERVAL '1 hour'
-       WHERE id = $2`,
+        SET reset_token = $1,
+          reset_token_expires = NOW() + INTERVAL '1 hour'
+        WHERE id = $2`,
       [resetToken, user.id]
     );
 
@@ -371,7 +371,7 @@ router.post('/forgot-password', async (req, res) => {
           <p>Recibimos una solicitud para cambiar tu contrasena.</p>
           <p>Haz clic en el boton para crear una nueva contrasena:</p>
           <a href="${resetUrl}"
-             style="display: inline-block; background: #000; color: #fff;
+              style="display: inline-block; background: #000; color: #fff;
                     padding: 12px 24px; border-radius: 24px;
                     text-decoration: none; font-weight: bold; margin: 16px 0;">
             Cambiar contrasena
@@ -402,9 +402,9 @@ router.post('/reset-password/:token', async (req, res) => {
 
     const result = await pool.query(
       `SELECT id
-       FROM users
-       WHERE reset_token = $1
-         AND reset_token_expires > NOW()`,
+        FROM users
+        WHERE reset_token = $1
+          AND reset_token_expires > NOW()`,
       [token]
     );
     const user = result.rows[0];
@@ -416,10 +416,10 @@ router.post('/reset-password/:token', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     await pool.query(
       `UPDATE users
-       SET password_hash = $1,
-           reset_token = null,
-           reset_token_expires = null
-       WHERE id = $2`,
+        SET password_hash = $1,
+          reset_token = null,
+          reset_token_expires = null
+        WHERE id = $2`,
       [hash, user.id]
     );
 
