@@ -136,7 +136,8 @@ export default function Home() {
               <div className="grid gap-3 grid-cols-1 sm:gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
                 {filteredUsers.map((user, index) => (
                   <button key={user.id} type="button" onClick={() => navigate(`/profile/${user.id}`)}
-                    className="group rounded-2xl border border-black/10 bg-white p-4 text-left shadow-[0_8px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)] sm:rounded-3xl sm:p-5 md:p-6">
+                    className="group rounded-2xl border bg-white p-4 text-left shadow-[0_8px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)] sm:rounded-3xl sm:p-5 md:p-6"
+                    style={{ borderColor: user.es_premium ? (user.perfil_bg_color || "#000000") : "rgba(0,0,0,0.1)" }}>
                     <div className="flex items-start justify-between gap-2.5">
                       <div className="flex min-w-0 items-start gap-2.5">
                         <div className="overflow-hidden rounded-full ring-1 ring-black/10 flex-shrink-0">
@@ -146,6 +147,12 @@ export default function Home() {
                           <p className="text-[10px] uppercase tracking-widest text-zinc-400">Contacto {String(index + 1).padStart(2, "0")}</p>
                           <p className="mt-1 truncate text-sm font-semibold sm:text-base md:text-lg">{user.nombre || "Sin nombre"}</p>
                           <p className="mt-1 truncate text-xs text-zinc-500 sm:text-sm">{user.email || "Sin correo"}</p>
+                          {user.es_premium && (
+                            <span className="mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold text-white"
+                              style={{ backgroundColor: user.perfil_bg_color || "#000000" }}>
+                              Premium
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="rounded-full border border-black/10 p-2 text-zinc-500 transition group-hover:border-black group-hover:text-black flex-shrink-0">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession, logout } from "../lib/auth";
 import { updateUser } from "../services/userService";
+import api from "../lib/api";
 
 function ArrowLeftIcon() {
   return (
@@ -32,10 +33,16 @@ export default function MyProfile() {
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [descripcionProfesional, setDescripcionProfesional] = useState("");
+  const [perfilBgColor, setPerfilBgColor] = useState("#000000");
+  const [cedula, setCedula] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [rutFile, setRutFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [premiumSaving, setPremiumSaving] = useState(false);
   const [message, setMessage] = useState("");
   const previewObjectUrlRef = useRef(null);
   const navigate = useNavigate();
@@ -50,6 +57,7 @@ export default function MyProfile() {
     setNombre(session.nombre ?? "");
     setCorreo(session.email ?? "");
     setDescripcionProfesional(session.descripcion ?? "");
+    setPerfilBgColor(session.perfil_bg_color ?? "#000000");
     setPreviewUrl(session.avatar_url ?? "");
     setLoading(false);
   }, [navigate]);
@@ -105,6 +113,7 @@ export default function MyProfile() {
         email: trimmedCorreo,
         avatar_url,
         descripcion: trimmedDescripcion,
+        ...(user.es_premium ? { perfil_bg_color: perfilBgColor } : {}),
       });
 
       // Actualizar sesión en localStorage
@@ -118,6 +127,51 @@ export default function MyProfile() {
       setMessage("No se pudo actualizar tu perfil: " + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const fileToDataUrl = (nextFile) => new Promise((resolve, reject) => {
+    if (!nextFile) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(nextFile);
+  });
+
+  const handleActivatePremium = async () => {
+    if (!user || premiumSaving) return;
+
+    setPremiumSaving(true);
+    setMessage("");
+
+    try {
+      const rut_pdf_data = await fileToDataUrl(rutFile);
+      const data = await api("/premium/activar", {
+        method: "POST",
+        body: JSON.stringify({
+          cedula,
+          telefono,
+          direccion,
+          rut_pdf_data,
+          perfil_bg_color: perfilBgColor,
+        }),
+      });
+
+      const newSession = { ...user, ...data.user };
+      localStorage.setItem("user", JSON.stringify(newSession));
+      setUser(newSession);
+      setCedula("");
+      setTelefono("");
+      setDireccion("");
+      setRutFile(null);
+      setMessage(`Premium activado correctamente. Factura: ${data.numero_factura}`);
+    } catch (err) {
+      setMessage("No se pudo activar premium: " + err.message);
+    } finally {
+      setPremiumSaving(false);
     }
   };
 
@@ -222,6 +276,47 @@ export default function MyProfile() {
                 </div>
               </div>
             </div>
+
+            {user?.es_premium && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Color premium del perfil</label>
+                <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3.5 md:rounded-3xl md:px-5 md:py-4">
+                  <input type="color" value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
+                    className="h-10 w-14 cursor-pointer rounded-lg border border-black/10 bg-transparent" />
+                  <input value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
+                    className="w-full bg-transparent text-xs outline-none sm:text-sm md:text-base" placeholder="#000000" />
+                </div>
+              </div>
+            )}
+
+            {!user?.es_premium && (
+              <div className="rounded-2xl border border-black/10 bg-[#f7f7f5] p-4 sm:rounded-3xl sm:p-5 md:p-6">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500">Premium</p>
+                <h2 className="mt-1.5 text-base font-semibold sm:text-lg">Activar membresia</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <input value={cedula} onChange={(e) => setCedula(e.target.value)}
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:text-sm"
+                    placeholder="Cedula" />
+                  <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:text-sm"
+                    placeholder="Telefono" />
+                  <input value={direccion} onChange={(e) => setDireccion(e.target.value)}
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:col-span-2 sm:text-sm"
+                    placeholder="Direccion" />
+                  <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5 sm:col-span-2">
+                    <input type="color" value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded-lg border border-black/10 bg-transparent" />
+                    <span className="text-xs text-zinc-600">Color publico del perfil</span>
+                  </div>
+                  <input type="file" accept="application/pdf" onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white sm:col-span-2 sm:text-sm" />
+                </div>
+                <button type="button" onClick={handleActivatePremium} disabled={premiumSaving}
+                  className="mt-4 w-full rounded-full bg-black px-4 py-2.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-zinc-800 disabled:opacity-70 sm:w-auto sm:px-5 sm:py-3 md:text-sm">
+                  {premiumSaving ? "Activando..." : "Comprar premium"}
+                </button>
+              </div>
+            )}
 
             {message && (
               <p className={`rounded-xl px-3 py-2.5 text-xs font-medium sm:rounded-2xl sm:px-4 sm:py-3 md:text-sm ${

@@ -33,6 +33,8 @@ export default function Admin() {
   // Clientes
   const [clientes, setClientes] = useState([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
+  const [caja, setCaja] = useState(null);
+  const [loadingCaja, setLoadingCaja] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [formCliente, setFormCliente] = useState(EMPTY_CLIENTE);
@@ -49,15 +51,15 @@ export default function Admin() {
 
   useEffect(() => {
     if (tab === "clientes" && clientes.length === 0) getClientes();
+    if (tab === "caja" && !caja) getCaja();
   }, [tab]);
 
   //  Usuarios 
   const getUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const session = getSession();
       const data = await api("/auth/usuarios");
-      setUsuarios(data.filter(u => u.id !== session.id));
+      setUsuarios(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,13 +121,48 @@ export default function Admin() {
   const getClientes = async () => {
     setLoadingClientes(true);
     try {
-      const data = await api("/clientes");
+      const data = await api("/premium/clientes");
       setClientes(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingClientes(false);
     }
+  };
+
+  const getCaja = async () => {
+    setLoadingCaja(true);
+    try {
+      const data = await api("/premium/caja");
+      setCaja(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingCaja(false);
+    }
+  };
+
+  const handleDownloadSalesPdf = () => {
+    if (!caja) return;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    let y = 18;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Historial de ventas premium", 14, y);
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Ventas: ${caja.total_ventas} | Total: $${caja.total_ganado}`, 14, y);
+    y += 10;
+    caja.historial.forEach((venta, index) => {
+      if (y > 275) {
+        doc.addPage();
+        y = 18;
+      }
+      doc.text(`${index + 1}. ${venta.numero_factura} - ${venta.nombre} - $${venta.precio_pagado}`, 14, y);
+      y += 7;
+    });
+    doc.save("historial_ventas_premium.pdf");
   };
 
   const handleOpenForm = (cliente = null) => {
@@ -212,7 +249,11 @@ export default function Admin() {
             </button>
             <button onClick={() => setTab("clientes")}
               className={`px-4 py-3 text-xs font-semibold transition sm:px-6 sm:text-sm ${tab === "clientes" ? "border-b-2 border-white text-white" : "text-white/45 hover:text-white/70"}`}>
-              Clientes
+              Clientes premium
+            </button>
+            <button onClick={() => setTab("caja")}
+              className={`px-4 py-3 text-xs font-semibold transition sm:px-6 sm:text-sm ${tab === "caja" ? "border-b-2 border-white text-white" : "text-white/45 hover:text-white/70"}`}>
+              Inventario y caja
             </button>
           </div>
         </header>
@@ -274,17 +315,17 @@ export default function Admin() {
             <>
               <div className="mb-4 flex items-center justify-between sm:mb-6">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">MongoDB</p>
-                  <h2 className="mt-1.5 text-lg font-semibold sm:text-xl md:text-2xl">Registro de Clientes</h2>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">Neon PostgreSQL</p>
+                  <h2 className="mt-1.5 text-lg font-semibold sm:text-xl md:text-2xl">Clientes premium</h2>
                 </div>
-                <button onClick={() => handleOpenForm()}
+                {false && <button onClick={() => handleOpenForm()}
                   className="flex items-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 sm:px-4 sm:py-2.5 sm:text-sm">
                   <PlusIcon /> Nuevo cliente
-                </button>
+                </button>}
               </div>
 
               {/* Formulario crear/editar */}
-              {showForm && (
+              {false && showForm && (
                 <div className="mb-6 rounded-2xl border border-black/10 bg-[#fafaf9] p-4 sm:rounded-3xl sm:p-5 md:p-6">
                   <h3 className="mb-4 text-sm font-semibold sm:text-base">
                     {editingCliente ? "Editar cliente" : "Nuevo cliente"}
@@ -329,14 +370,14 @@ export default function Admin() {
               ) : (
                 <div className="space-y-3 sm:space-y-4">
                   {clientes.map((cliente, index) => (
-                    <div key={cliente._id} className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-5">
+                    <div key={cliente.id} className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-[10px] uppercase tracking-widest text-zinc-400">Cliente {String(index + 1).padStart(2, "0")}</p>
                           <p className="mt-1 text-sm font-semibold sm:text-base">{cliente.nombre}</p>
-                          {cliente.empresa && <p className="text-xs text-zinc-500">{cliente.empresa}</p>}
+                          <p className="text-xs text-zinc-500">{cliente.email}</p>
                         </div>
-                        <div className="flex gap-2">
+                        {false && <div className="flex gap-2">
                           <button onClick={() => handleOpenForm(cliente)}
                             className="flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-zinc-100">
                             <EditIcon /> Editar
@@ -345,7 +386,7 @@ export default function Admin() {
                             className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-70">
                             <TrashIcon /> {deletingCliente[cliente._id] ? "..." : "Eliminar"}
                           </button>
-                        </div>
+                        </div>}
                       </div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {cliente.email && (
@@ -375,6 +416,62 @@ export default function Admin() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === "caja" && (
+            <>
+              <div className="mb-4 flex items-center justify-between sm:mb-6">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">Premium</p>
+                  <h2 className="mt-1.5 text-lg font-semibold sm:text-xl md:text-2xl">Inventario y caja</h2>
+                </div>
+                <button onClick={handleDownloadSalesPdf} disabled={!caja}
+                  className="flex items-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60 sm:px-4 sm:py-2.5 sm:text-sm">
+                  <DownloadIcon /> Historial PDF
+                </button>
+              </div>
+
+              {loadingCaja ? (
+                <div className="rounded-2xl border border-dashed border-black/15 bg-[#fafaf9] px-4 py-12 text-center text-sm text-zinc-500">Cargando caja...</div>
+              ) : caja && (
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <article className="rounded-2xl border border-black/10 bg-[#f7f7f5] p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-zinc-500">Ventas</p>
+                      <p className="mt-2 text-2xl font-semibold">{caja.total_ventas}</p>
+                    </article>
+                    <article className="rounded-2xl border border-black/10 bg-[#f7f7f5] p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-zinc-500">Caja acumulada</p>
+                      <p className="mt-2 text-2xl font-semibold">${caja.total_ganado}</p>
+                    </article>
+                  </div>
+
+                  <div className="rounded-2xl border border-black/10 bg-white p-4">
+                    <h3 className="text-sm font-semibold">Stock de membresias</h3>
+                    <div className="mt-3 grid gap-2">
+                      {caja.productos.map(producto => (
+                        <div key={producto.id} className="rounded-xl border border-black/10 bg-[#f7f7f5] p-3 text-sm">
+                          <p className="font-semibold">{producto.nombre}</p>
+                          <p className="mt-1 text-xs text-zinc-600">Precio: ${producto.precio} | Stock: {producto.stock}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-black/10 bg-white p-4">
+                    <h3 className="text-sm font-semibold">Historial de ventas</h3>
+                    <div className="mt-3 space-y-2">
+                      {caja.historial.map(venta => (
+                        <div key={venta.id} className="rounded-xl border border-black/10 bg-[#f7f7f5] p-3 text-xs">
+                          <p className="font-semibold">{venta.numero_factura} - {venta.nombre}</p>
+                          <p className="mt-1 text-zinc-600">{venta.email} | ${venta.precio_pagado}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </>

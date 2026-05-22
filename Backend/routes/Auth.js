@@ -18,7 +18,8 @@ const ensureAuthSchema = () => {
         ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN DEFAULT false,
         ADD COLUMN IF NOT EXISTS verification_token TEXT,
         ADD COLUMN IF NOT EXISTS reset_token TEXT,
-        ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP;
+        ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS perfil_bg_color TEXT DEFAULT '#000000';
       ALTER TABLE users
         ALTER COLUMN email_verificado SET DEFAULT false;
     `);
@@ -319,6 +320,7 @@ router.post('/login', async (req, res) => {
         es_premium: user.es_premium,
         avatar_url: user.avatar_url,
         descripcion: user.descripcion,
+        perfil_bg_color: user.perfil_bg_color,
       },
     });
   } catch (err) {
@@ -432,7 +434,7 @@ router.post('/reset-password/:token', async (req, res) => {
 router.get('/usuarios', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, create_at FROM users ORDER BY create_at DESC'
+      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color, create_at FROM users ORDER BY create_at DESC'
     );
     res.json(result.rows);
   } catch (err) {
@@ -443,7 +445,7 @@ router.get('/usuarios', async (req, res) => {
 router.get('/usuarios/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion FROM users WHERE id = $1',
+      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color FROM users WHERE id = $1',
       [req.params.id]
     );
     if (result.rows.length === 0) {
@@ -456,7 +458,7 @@ router.get('/usuarios/:id', async (req, res) => {
 });
 
 router.put('/usuarios/:id', async (req, res) => {
-  const { nombre, email, rol, avatar_url, descripcion } = req.body;
+  const { nombre, email, rol, avatar_url, descripcion, perfil_bg_color } = req.body;
 
   try {
     const result = await pool.query(
@@ -465,9 +467,10 @@ router.put('/usuarios/:id', async (req, res) => {
         email = COALESCE($2, email),
         rol = COALESCE($3, rol),
         avatar_url = COALESCE($4, avatar_url),
-        descripcion = COALESCE($5, descripcion)
-       WHERE id = $6 RETURNING *`,
-      [nombre || null, email || null, rol || null, avatar_url || null, descripcion || null, req.params.id]
+        descripcion = COALESCE($5, descripcion),
+        perfil_bg_color = COALESCE($6, perfil_bg_color)
+       WHERE id = $7 RETURNING *`,
+      [nombre || null, email || null, rol || null, avatar_url || null, descripcion || null, perfil_bg_color || null, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {

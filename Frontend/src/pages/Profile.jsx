@@ -32,11 +32,12 @@ export default function Profile() {
   }, [id]);
 
   const handleLogout = () => { logout(); navigate("/"); };
+  const profileColor = user?.es_premium ? (user.perfil_bg_color || "#000000") : "#000000";
 
   return (
     <main className="min-h-screen bg-[#f3f2ee] px-2 py-2 text-zinc-950 sm:px-3 md:px-4 lg:px-5">
       <section className="mx-auto min-h-[calc(100vh-16px)] max-w-[1600px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.08)] sm:rounded-3xl md:rounded-[40px]">
-        <header className="border-b border-white/10 bg-black text-white">
+        <header className="border-b border-white/10 text-white" style={{ backgroundColor: profileColor }}>
           <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5 md:px-8 md:py-7 lg:flex-row lg:items-center lg:justify-between lg:px-12">
             <button type="button" onClick={() => navigate("/home")}
               className="flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 sm:px-4 sm:py-3 sm:text-sm">
@@ -61,7 +62,7 @@ export default function Profile() {
           ) : (
             <div className="grid gap-4 sm:gap-5 lg:grid-cols-[480px_minmax(0,1fr)] lg:gap-6">
               <aside>
-                <div className="overflow-hidden rounded-2xl bg-black sm:rounded-3xl">
+                <div className="overflow-hidden rounded-2xl sm:rounded-3xl" style={{ backgroundColor: profileColor }}>
                   {user?.avatar_url ? (
                     <img alt={user.nombre} className="h-80 w-full object-cover sm:h-96 md:h-[480px] lg:h-[520px]" src={user.avatar_url} />
                   ) : (
@@ -76,6 +77,7 @@ export default function Profile() {
                 <div className="rounded-2xl border border-black/10 bg-[#fbfbfa] p-4 sm:rounded-3xl sm:p-6">
                   <p className="text-[10px] uppercase tracking-widest text-zinc-500">Executive Profile</p>
                   <h2 className="mt-2 text-xl font-semibold sm:text-2xl md:text-3xl">{user?.nombre || "Sin nombre"}</h2>
+                  {user?.es_premium && <p className="mt-2 text-xs font-semibold text-zinc-500">Perfil premium</p>}
                 </div>
 
                 <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-6">
