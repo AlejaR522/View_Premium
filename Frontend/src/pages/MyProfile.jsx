@@ -45,6 +45,7 @@ export default function MyProfile() {
   const [premiumSaving, setPremiumSaving] = useState(false);
   const [message, setMessage] = useState("");
   const previewObjectUrlRef = useRef(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -219,10 +220,25 @@ export default function MyProfile() {
               <p className="text-[10px] uppercase tracking-widest text-white/45 sm:text-[11px]">Personal Area</p>
               <h1 className="mt-1 text-lg font-semibold tracking-tight sm:mt-2 sm:text-xl md:text-3xl">My Profile</h1>
             </div>
-            <button type="button" onClick={handleLogout}
-              className="rounded-full border border-white/15 bg-white px-4 py-2.5 text-xs font-semibold text-black transition hover:-translate-y-0.5 hover:bg-zinc-200 sm:px-5 sm:py-3 md:text-sm">
-              Cerrar sesión
-            </button>
+            <div className="flex items-center gap-3">
+              {!user?.es_premium && (
+                <button
+                  type="button"
+                  onClick={() => setShowPremiumModal(!showPremiumModal)}
+                  className="rounded-full border border-yellow-400 bg-black-400 px-4 py-2.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-black-300 sm:px-5 sm:py-3 md:text-sm"
+                >
+                  {showPremiumModal ? "Cerrar Premium" : "Hazte Premium"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full border border-white/15 bg-white px-4 py-2.5 text-xs font-semibold text-black transition hover:-translate-y-0.5 hover:bg-zinc-200 sm:px-5 sm:py-3 md:text-sm"
+              >
+                Cerrar sesión
+              </button>
+          </div>
+
           </div>
         </header>
 
@@ -277,46 +293,99 @@ export default function MyProfile() {
               </div>
             </div>
 
-            {user?.es_premium && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Color premium del perfil</label>
-                <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3.5 md:rounded-3xl md:px-5 md:py-4">
-                  <input type="color" value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
-                    className="h-10 w-14 cursor-pointer rounded-lg border border-black/10 bg-transparent" />
-                  <input value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
-                    className="w-full bg-transparent text-xs outline-none sm:text-sm md:text-base" placeholder="#000000" />
-                </div>
-              </div>
-            )}
-
-            {!user?.es_premium && (
-              <div className="rounded-2xl border border-black/10 bg-[#f7f7f5] p-4 sm:rounded-3xl sm:p-5 md:p-6">
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500">Premium</p>
-                <h2 className="mt-1.5 text-base font-semibold sm:text-lg">Activar membresia</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <input value={cedula} onChange={(e) => setCedula(e.target.value)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:text-sm"
-                    placeholder="Cedula" />
-                  <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:text-sm"
-                    placeholder="Telefono" />
-                  <input value={direccion} onChange={(e) => setDireccion(e.target.value)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none focus:border-black sm:col-span-2 sm:text-sm"
-                    placeholder="Direccion" />
-                  <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5 sm:col-span-2">
-                    <input type="color" value={perfilBgColor} onChange={(e) => setPerfilBgColor(e.target.value)}
-                      className="h-9 w-12 cursor-pointer rounded-lg border border-black/10 bg-transparent" />
-                    <span className="text-xs text-zinc-600">Color publico del perfil</span>
+            {!user?.es_premium && showPremiumModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+              <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-zinc-500">
+                      Premium
+                      </p>
+                      <h2 className="mt-1 text-2xl font-bold text-black">
+                        Activar membresía<br/><br />
+                        Membresia Premium $29.000 Pesos  
+                      </h2>
                   </div>
-                  <input type="file" accept="application/pdf" onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-xs outline-none file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white sm:col-span-2 sm:text-sm" />
-                </div>
-                <button type="button" onClick={handleActivatePremium} disabled={premiumSaving}
-                  className="mt-4 w-full rounded-full bg-black px-4 py-2.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-zinc-800 disabled:opacity-70 sm:w-auto sm:px-5 sm:py-3 md:text-sm">
-                  {premiumSaving ? "Activando..." : "Comprar premium"}
+                <button
+                  onClick={() => setShowPremiumModal(false)}
+                  className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold hover:bg-zinc-200"
+                >
+                  X
                 </button>
               </div>
-            )}
+
+              <div className="mt-6 space-y-4">
+
+                <input
+                  value={cedula}
+                  onChange={(e) => setCedula(e.target.value)}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
+                  placeholder="Cédula"
+                />
+
+                <input
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
+                  placeholder="Teléfono"
+                />
+
+                <input
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
+                  placeholder="Dirección"
+                />
+
+                <div className="rounded-2xl border border-black/10 p-4">
+
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Color del perfil premium
+                  </label>
+
+                  <div className="mt-2 flex items-center gap-3">
+
+                    <input
+                      type="color"
+                      value={perfilBgColor}
+                      onChange={(e) => setPerfilBgColor(e.target.value)}
+                      className="h-12 w-16 cursor-pointer rounded-xl border border-black/10"
+                    />
+
+                    <span className="text-sm text-zinc-600">
+                      Personaliza tu perfil
+                    </span>
+                  </div>
+                </div>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
+                    className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white"
+                  />
+
+                </div>
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setShowPremiumModal(false)}
+                    className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleActivatePremium}
+                    disabled={premiumSaving}
+                    className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                  >
+                    {premiumSaving ? "Activando..." : "Activar Premium"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+)}
 
             {message && (
               <p className={`rounded-xl px-3 py-2.5 text-xs font-medium sm:rounded-2xl sm:px-4 sm:py-3 md:text-sm ${

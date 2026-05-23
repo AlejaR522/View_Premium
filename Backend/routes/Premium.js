@@ -89,7 +89,7 @@ router.post('/activar', auth, async (req, res) => {
 
       const cliente = await client.query(
         `INSERT INTO clientes (user_id, cedula, telefono, direccion, rut_pdf_url, rut_pdf_data)
-         VALUES ($1, $2, $3, $4, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
         [userId, cedula || null, telefono || null, direccion || null, rut_pdf_url || null, rut_pdf_data || null]
       );
@@ -97,7 +97,7 @@ router.post('/activar', auth, async (req, res) => {
       const numeroFactura = `FACT-${Date.now()}-${userId}`;
       await client.query(
         `INSERT INTO ventas (cliente_id, producto_id, precio_pagado, numero_factura)
-         VALUES ($1, $2, $3, $4)`,
+          VALUES ($1, $2, $3, $4)`,
         [cliente.rows[0].id, producto.rows[0].id, producto.rows[0].precio, numeroFactura]
       );
 
@@ -108,10 +108,10 @@ router.post('/activar', auth, async (req, res) => {
 
       const updatedUser = await client.query(
         `UPDATE users
-         SET es_premium = true,
-             perfil_bg_color = $1
-         WHERE id = $2
-         RETURNING id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color`,
+          SET es_premium = true,
+            perfil_bg_color = $1
+          WHERE id = $2
+          RETURNING id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color`,
         [color, userId]
       );
 
@@ -141,9 +141,9 @@ router.get('/clientes', auth, async (req, res) => {
 
     const result = await pool.query(`
       SELECT u.id AS user_id, u.nombre, u.email, u.avatar_url, u.perfil_bg_color,
-             u.es_premium, c.id, c.cedula, c.telefono, c.direccion, c.rut_pdf_url,
-             c.rut_pdf_data IS NOT NULL AS tiene_rut_pdf,
-             c.create_at, v.precio_pagado, v.numero_factura, v.fecha
+            u.es_premium, c.id, c.cedula, c.telefono, c.direccion, c.rut_pdf_url,
+            c.rut_pdf_data IS NOT NULL AS tiene_rut_pdf,
+            c.create_at, v.precio_pagado, v.numero_factura, v.fecha
       FROM users u
       LEFT JOIN LATERAL (
         SELECT *
@@ -182,7 +182,7 @@ router.get('/caja', auth, async (req, res) => {
     `);
     const historial = await pool.query(`
       SELECT v.id, v.precio_pagado, v.numero_factura, v.fecha,
-             p.nombre AS producto, u.nombre, u.email, c.cedula
+            p.nombre AS producto, u.nombre, u.email, c.cedula
       FROM ventas v
       JOIN productos p ON v.producto_id = p.id
       JOIN clientes c ON v.cliente_id = c.id
@@ -210,10 +210,10 @@ router.put('/productos/:id', auth, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE productos
-       SET nombre = COALESCE($1, nombre),
-           precio = COALESCE($2, precio),
-           stock = COALESCE($3, stock)
-       WHERE id = $4
+        SET nombre = COALESCE($1, nombre),
+          precio = COALESCE($2, precio),
+          stock = COALESCE($3, stock)
+        WHERE id = $4
        RETURNING *`,
       [nombre || null, precio ?? null, stock ?? null, req.params.id]
     );
