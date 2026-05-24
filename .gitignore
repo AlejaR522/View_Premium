@@ -24,6 +24,10 @@ yarn-error.log*
 .vscode/
 .idea/
 
+# PDFs de facturas
+Backend/uploads/facturas/*.pdf
+
+
 # OS files
 .DS_Store
 Thumbs.db
