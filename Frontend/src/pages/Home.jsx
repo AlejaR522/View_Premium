@@ -37,8 +37,12 @@ export default function Home() {
   const [direccion, setDireccion] = useState("");
   const [rutFile, setRutFile] = useState(null);
   const [perfilBgColor, setPerfilBgColor] = useState("#000000");
+  const [message, setMessage] = useState("");
 
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+  const [showFacturaModal, setShowFacturaModal] = useState(false);
+  const [facturaUrl, setFacturaUrl] = useState("");
 
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -85,7 +89,7 @@ export default function Home() {
     reader.onerror = reject;
     reader.readAsDataURL(nextFile);
   });
-  
+
   const handleActivatePremium = async () => {
   if (!currentUser || premiumSaving) return;
 
@@ -122,6 +126,10 @@ export default function Home() {
     );
 
     setShowPremiumModal(false);
+
+    setFacturaUrl(`http://localhost:5000/facturas/${data.fact_pdf}`);
+
+    setShowFacturaModal(true);
 
   } catch (err) {
     setMessage("No se pudo activar premium: " + err.message);
@@ -335,6 +343,43 @@ export default function Home() {
               </div>
             </div>
             )}
+          {showFacturaModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    
+    <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+      
+      <h2 className="text-2xl font-bold text-center">
+        🎉 Premium Activado
+      </h2>
+
+      <p className="mt-3 text-center text-zinc-600">
+        Tu membresía premium fue activada correctamente.
+      </p>
+
+      <div className="mt-6 flex flex-col gap-3">
+
+        <a
+          href={facturaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full rounded-full bg-black px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
+        >
+          Descargar Factura PDF
+        </a>
+
+        <button
+          onClick={() => setShowFacturaModal(false)}
+          className="w-full rounded-full border border-black px-4 py-3 text-sm font-semibold transition hover:bg-zinc-100"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+  )}
     </main>
     
   );

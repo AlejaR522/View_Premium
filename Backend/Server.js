@@ -6,6 +6,7 @@ require('./config/postgres');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
+app.use("/facturas", express.static("uploads/facturas")); 
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 app.use('/api/auth', require('./routes/auth'));

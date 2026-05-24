@@ -46,6 +46,9 @@ export default function MyProfile() {
   const [message, setMessage] = useState("");
   const previewObjectUrlRef = useRef(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+  const [showFacturaModal, setShowFacturaModal] = useState(false);
+  const [facturaUrl, setFacturaUrl] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -169,6 +172,9 @@ export default function MyProfile() {
       setDireccion("");
       setRutFile(null);
       setMessage(`Premium activado correctamente. Factura: ${data.numero_factura}`);
+      setShowPremiumModal(false); 
+      setFacturaUrl(`http://localhost:5000/facturas/${data.fact_pdf}`);
+      setShowFacturaModal(true);
     } catch (err) {
       setMessage("No se pudo activar premium: " + err.message);
     } finally {
@@ -402,6 +408,41 @@ export default function MyProfile() {
           </section>
         </div>
       </section>
+      
+      {showFacturaModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+      
+      <h2 className="text-2xl font-bold text-center">
+        🎉 Premium Activado
+      </h2>
+
+      <p className="mt-3 text-center text-zinc-600">
+        Tu membresía premium fue activada correctamente.
+      </p>
+
+      <div className="mt-6 flex flex-col gap-3">
+        
+        <a
+          href={facturaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full rounded-full bg-black px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-zinc-800"
+        >
+          Descargar Factura PDF
+        </a>
+
+        <button
+          onClick={() => setShowFacturaModal(false)}
+          className="w-full rounded-full border border-black px-4 py-3 text-sm font-semibold transition hover:bg-zinc-100"
+        >
+          Cerrar
+        </button>
+
+      </div>
+    </div>
+  </div>
+  )}
     </main>
   );
 }

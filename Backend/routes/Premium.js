@@ -3,6 +3,10 @@ const router = express.Router();
 const pool = require('../config/postgres');
 const auth = require('../middleware/authMiddleware');
 
+const PDFDocument = require("pdfkit");
+const fs = require("fs");
+const path = require("path");
+
 let premiumSchemaReady = null;
 
 const ensurePremiumSchema = () => {
@@ -10,6 +14,9 @@ const ensurePremiumSchema = () => {
     premiumSchemaReady = pool.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS perfil_bg_color TEXT DEFAULT '#000000';
+
+      ALTER TABLE clientes
+        ADD COLUMN IF NOT EXISTS fact_pdf TEXT;
 
       CREATE TABLE IF NOT EXISTS productos (
         id SERIAL PRIMARY KEY,
@@ -27,6 +34,7 @@ const ensurePremiumSchema = () => {
         direccion TEXT,
         rut_pdf_url TEXT,
         rut_pdf_data TEXT,
+        fact_pdf TEXT,
         create_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -114,6 +122,51 @@ router.post('/activar', auth, async (req, res) => {
           RETURNING id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color`,
         [color, userId]
       );
+      const fecha = new Date().toLocaleDateString("es-CO");
+
+      const nombreFactura = `factura_${userId}_${Date.now()}.pdf`;
+
+      const rutaFactura = path.join(
+        __dirname,
+        "../uploads/facturas",
+        nombreFactura
+      );
+
+      const doc = new PDFDocument();
+
+      doc.pipe(fs.createWriteStream(rutaFactura));
+
+      doc.fontSize(24).text("VIEW APP", {
+        align: "center",
+      });
+
+      doc.moveDown();
+
+      doc.fontSize(18).text("FACTURA PREMIUM", {
+        align: "center",
+      });
+
+      doc.moveDown(2);
+
+      doc.fontSize(12).text(`Cedula: ${cedula}`);
+      doc.text(`Telefono: ${telefono}`);
+      doc.text(`Direccion: ${direccion}`);
+      doc.text(`Fecha activacion: ${fecha}`);
+
+      doc.moveDown(2);
+
+      doc.fontSize(14).text("Membresia Premium activada correctamente.");
+
+      doc.end();
+
+      await client.query(
+        `
+        UPDATE clientes
+        SET fact_pdf = $1
+        WHERE id = $2
+        `,
+        [nombreFactura, cliente.rows[0].id]
+      );
 
       await client.query('COMMIT');
 
@@ -121,6 +174,7 @@ router.post('/activar', auth, async (req, res) => {
         mensaje: 'Premium activado',
         numero_factura: numeroFactura,
         precio: producto.rows[0].precio,
+        fact_pdf: nombreFactura,
         user: updatedUser.rows[0],
       });
     } catch (err) {
@@ -130,6 +184,7 @@ router.post('/activar', auth, async (req, res) => {
       client.release();
     }
   } catch (err) {
+    console.error("ERROR PREMIUM:", err);
     res.status(500).json({ error: err.message });
   }
 });
