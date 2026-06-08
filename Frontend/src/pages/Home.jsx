@@ -40,6 +40,9 @@ export default function Home() {
   const [message, setMessage] = useState("");
 
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumData, setPremiumData] = useState(null);
+  const [premiumLoading, setPremiumLoading] = useState(false);
+  const [premiumEditing, setPremiumEditing] = useState(false);
 
   const [showFacturaModal, setShowFacturaModal] = useState(false);
   const [facturaUrl, setFacturaUrl] = useState("");
@@ -90,54 +93,164 @@ export default function Home() {
     reader.readAsDataURL(nextFile);
   });
 
+  const isPremiumActive = Boolean(currentUser?.es_premium) && (!currentUser?.premium_until || new Date(currentUser.premium_until).getTime() > Date.now());
+
+  const sanitizeNumericInput = (value) => value.replace(/[^0-9]/g, "");
+
+  const downloadBase64Pdf = (base64Data, filename) => {
+    const cleanedData = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
+    const binary = atob(cleanedData);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const anchor = document.createElement("a");
+    anchor.href = URL.createObjectURL(blob);
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(anchor.href);
+  };
+
+  const populatePremiumForm = (source = null) => {
+    const detail = source || {};
+    setCedula(detail.cedula || "");
+    setTelefono(detail.telefono || "");
+    setDireccion(detail.direccion || "");
+    setPerfilBgColor(detail.perfil_bg_color || currentUser?.perfil_bg_color || "#000000");
+    setRutFile(null);
+  };
+
+  const openPremiumModal = async () => {
+    setPremiumEditing(false);
+    setMessage("");
+
+    if (!isPremiumActive) {
+      populatePremiumForm();
+      setShowPremiumModal(true);
+      return;
+    }
+
+    setPremiumLoading(true);
+    try {
+      const data = await api("/premium/mis-datos");
+      setPremiumData(data);
+      populatePremiumForm(data);
+      setShowPremiumModal(true);
+    } catch (err) {
+      setMessage("No se pudo cargar los datos premium: " + err.message);
+      setShowPremiumModal(true);
+    } finally {
+      setPremiumLoading(false);
+    }
+  };
+
   const handleActivatePremium = async () => {
-  if (!currentUser || premiumSaving) return;
+    if (!currentUser || premiumSaving) return;
 
-  setPremiumSaving(true);
-  setMessage("");
+    setPremiumSaving(true);
+    setMessage("");
 
-  try {
-    const rut_pdf_data = await fileToDataUrl(rutFile);
+    try {
+      const rut_pdf_data = await fileToDataUrl(rutFile);
 
-    const data = await api("/premium/activar", {
-      method: "POST",
-      body: JSON.stringify({
+      if (!cedula || !telefono || !direccion || !rut_pdf_data) {
+        setMessage("La cédula, el teléfono, la dirección y el RUT son obligatorios.");
+        return;
+      }
+
+      const data = await api("/premium/activar", {
+        method: "POST",
+        body: JSON.stringify({
+          cedula,
+          telefono,
+          direccion,
+          rut_pdf_data,
+          perfil_bg_color: perfilBgColor,
+        }),
+      });
+
+      const newSession = { ...currentUser, ...data.user };
+
+      localStorage.setItem("user", JSON.stringify(newSession));
+
+      setCurrentUser(newSession);
+
+      setCedula("");
+      setTelefono("");
+      setDireccion("");
+      setRutFile(null);
+
+      setMessage(data.mensaje || `Premium activado correctamente. Factura: ${data.numero_factura}`);
+
+      setShowPremiumModal(false);
+
+      setFacturaUrl(`http://localhost:5000/facturas/${data.fact_pdf}`);
+
+      setShowFacturaModal(true);
+    } catch (err) {
+      setMessage("No se pudo activar premium: " + err.message);
+    } finally {
+      setPremiumSaving(false);
+    }
+  };
+
+  const handleUpdatePremium = async () => {
+    if (!currentUser || premiumSaving) return;
+
+    setPremiumSaving(true);
+    setMessage("");
+
+    try {
+      if (!cedula || !telefono || !direccion) {
+        setMessage("La cédula, el teléfono y la dirección son obligatorios.");
+        return;
+      }
+
+      const rut_pdf_data = await fileToDataUrl(rutFile);
+      const payload = {
         cedula,
         telefono,
         direccion,
-        rut_pdf_data,
         perfil_bg_color: perfilBgColor,
-      }),
-    });
+        ...(rutFile ? { rut_pdf_data } : {}),
+      };
 
-    const newSession = { ...currentUser, ...data.user };
+      const data = await api("/premium/mi-cliente", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
 
-    localStorage.setItem("user", JSON.stringify(newSession));
+      const newSession = { ...currentUser, perfil_bg_color: perfilBgColor };
+      localStorage.setItem("user", JSON.stringify(newSession));
+      setCurrentUser(newSession);
+      setPremiumData(data.cliente);
+      setPremiumEditing(false);
+      setRutFile(null);
+      setMessage(data.mensaje || "Datos premium actualizados correctamente.");
+      setShowPremiumModal(false);
+    } catch (err) {
+      setMessage("No se pudo actualizar premium: " + err.message);
+    } finally {
+      setPremiumSaving(false);
+    }
+  };
 
-    setCurrentUser(newSession);
+  const handlePremiumSubmit = async () => {
+    if (isPremiumActive && premiumEditing) {
+      await handleUpdatePremium();
+      return;
+    }
 
-    setCedula("");
-    setTelefono("");
-    setDireccion("");
-    setRutFile(null);
+    if (isPremiumActive) {
+      setPremiumEditing(true);
+      return;
+    }
 
-    setMessage(
-      `Premium activado correctamente. Factura: ${data.numero_factura}`
-    );
-
-    setShowPremiumModal(false);
-
-    setFacturaUrl(`http://localhost:5000/facturas/${data.fact_pdf}`);
-
-    setShowFacturaModal(true);
-
-  } catch (err) {
-    setMessage("No se pudo activar premium: " + err.message);
-  } finally {
-    setPremiumSaving(false);
-  }
-};
-  
+    await handleActivatePremium();
+  };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f3f2ee] px-2 py-2 text-zinc-950 sm:px-3 md:px-4 lg:px-5">
@@ -156,15 +269,13 @@ export default function Home() {
                 </div>
               </button>
               <div className="flex items-center gap-3">
-                {!currentUser?.es_premium && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPremiumModal(!showPremiumModal)}
-                    className="rounded-full border border-yellow-400 bg-black-400 px-4 py-2.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-black-300 sm:px-5 sm:py-3 md:text-sm"
-                  >
-                    {showPremiumModal ? "Cerrar Premium" : "Hazte Premium"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={openPremiumModal}
+                  className="rounded-full border border-yellow-400 bg-black-400 px-4 py-2.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-black-300 sm:px-5 sm:py-3 md:text-sm"
+                >
+                  {isPremiumActive ? "Premium" : "Hazte Premium"}
+                </button>
               <button type="button" onClick={handleLogout}
                 className="w-full rounded-full border border-white/15 bg-white px-4 py-2.5 text-xs font-semibold text-black transition hover:bg-zinc-200 sm:w-auto sm:px-5 sm:py-3">
                 Cerrar sesión
@@ -251,99 +362,164 @@ export default function Home() {
           </section>
         </div>
       </section>
-      {!currentUser?.es_premium && showPremiumModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-              <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-zinc-500">
-                      Premium
-                      </p>
-                      <h2 className="mt-1 text-2xl font-bold text-black">
-                        Activar membresía<br/><br />
-                        Membresia Premium $29.000 Pesos  
-                      </h2>
-                  </div>
-                <button
-                  onClick={() => setShowPremiumModal(false)}
-                  className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold hover:bg-zinc-200"
-                >
-                  X
-                </button>
+      {showPremiumModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-zinc-500">
+                  Premium
+                </p>
+                <h2 className="mt-1 text-2xl font-bold text-black">
+                  {isPremiumActive ? (premiumEditing ? "Editar datos premium" : "Información premium") : "Activar membresía"}
+                </h2>
               </div>
+              <button
+                onClick={() => setShowPremiumModal(false)}
+                className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold hover:bg-zinc-200"
+              >
+                X
+              </button>
+            </div>
 
-              <div className="mt-6 space-y-4">
+            <p className="mt-3 text-sm text-zinc-600">
+              {isPremiumActive
+                ? "Tu premium está activo. Puedes descargar factura y actualizar tus datos cuando quieras."
+                : "Membresía Premium $29.000 Pesos"}
+            </p>
 
-                <input
-                  value={cedula}
-                  onChange={(e) => setCedula(e.target.value)}
-                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
-                  placeholder="Cédula"
-                />
+            {isPremiumActive && premiumData?.premium_until && (
+              <p className="mt-3 text-sm font-medium text-emerald-700">
+                Tu premium dura hasta {new Date(premiumData.premium_until).toLocaleString()}.
+              </p>
+            )}
 
-                <input
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
-                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
-                  placeholder="Teléfono"
-                />
+            <div className="mt-6 space-y-4">
+              <input
+                value={cedula}
+                onChange={(e) => setCedula(sanitizeNumericInput(e.target.value))}
+                disabled={premiumLoading || (isPremiumActive && !premiumEditing)}
+                className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black disabled:bg-zinc-100"
+                placeholder="Cédula"
+              />
 
-                <input
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
-                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
-                  placeholder="Dirección"
-                />
+              <input
+                value={telefono}
+                onChange={(e) => setTelefono(sanitizeNumericInput(e.target.value))}
+                disabled={premiumLoading || (isPremiumActive && !premiumEditing)}
+                className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black disabled:bg-zinc-100"
+                placeholder="Teléfono"
+              />
 
-                <div className="rounded-2xl border border-black/10 p-4">
+              <input
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                disabled={premiumLoading || (isPremiumActive && !premiumEditing)}
+                className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black disabled:bg-zinc-100"
+                placeholder="Dirección"
+              />
 
-                  <label className="text-xs font-semibold text-zinc-500">
-                    Color del perfil premium
-                  </label>
+              <div className="rounded-2xl border border-black/10 p-4">
+                <label className="text-xs font-semibold text-zinc-500">
+                  Color del perfil premium
+                </label>
 
-                  <div className="mt-2 flex items-center gap-3">
-
-                    <input
-                      type="color"
-                      value={perfilBgColor}
-                      onChange={(e) => setPerfilBgColor(e.target.value)}
-                      className="h-12 w-16 cursor-pointer rounded-xl border border-black/10"
-                    />
-
-                    <span className="text-sm text-zinc-600">
-                      Personaliza tu perfil
-                    </span>
-                  </div>
-                </div>
+                <div className="mt-2 flex items-center gap-3">
                   <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
-                    className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white"
+                    type="color"
+                    value={perfilBgColor}
+                    onChange={(e) => setPerfilBgColor(e.target.value)}
+                    disabled={premiumLoading || (isPremiumActive && !premiumEditing)}
+                    className="h-12 w-16 cursor-pointer rounded-xl border border-black/10 disabled:bg-zinc-100"
                   />
 
-                </div>
-                <div className="mt-6 flex items-center justify-end gap-3">
-                  <button
-                    onClick={() => setShowPremiumModal(false)}
-                    className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleActivatePremium}
-                    disabled={premiumSaving}
-                    className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
-                  >
-                    {premiumSaving ? "Activando..." : "Activar Premium"}
-                  </button>
+                  <span className="text-sm text-zinc-600">
+                    Personaliza tu perfil
+                  </span>
                 </div>
               </div>
+
+              {!isPremiumActive && (
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white"
+                />
+              )}
+
+              {isPremiumActive && premiumEditing && (
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setRutFile(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-black file:px-4 file:py-2 file:text-white"
+                />
+              )}
             </div>
-            )}
-          {showFacturaModal && (
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              {isPremiumActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => premiumData?.rut_pdf_data && downloadBase64Pdf(premiumData.rut_pdf_data, `rut-${currentUser?.id || "usuario"}.pdf`)}
+                    className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100"
+                  >
+                    Descargar RUT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFacturaUrl(`http://localhost:5000/facturas/${premiumData?.fact_pdf || ""}`);
+                      setShowFacturaModal(true);
+                    }}
+                    className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100"
+                  >
+                    Ver factura
+                  </button>
+                  {!premiumEditing && (
+                    <button
+                      type="button"
+                      onClick={() => setPremiumEditing(true)}
+                      className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    >
+                      Editar datos
+                    </button>
+                  )}
+                  {premiumEditing && (
+                    <button
+                      type="button"
+                      onClick={handlePremiumSubmit}
+                      disabled={premiumSaving}
+                      className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                    >
+                      {premiumSaving ? "Guardando..." : "Guardar cambios"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleActivatePremium}
+                  disabled={premiumSaving}
+                  className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                >
+                  {premiumSaving ? "Activando..." : "Activar Premium"}
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowPremiumModal(false)}
+                className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showFacturaModal && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
     
     <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
