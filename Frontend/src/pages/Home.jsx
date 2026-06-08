@@ -322,6 +322,12 @@ export default function Home() {
               <h2 className="mt-1.5 text-lg font-semibold sm:text-xl md:text-3xl">People Overview</h2>
             </div>
 
+            {message && (
+              <div className="rounded-2xl border border-black/10 bg-[#fafaf9] px-4 py-3 text-xs font-medium text-zinc-700 sm:text-sm">
+                {message}
+              </div>
+            )}
+
             {loading ? (
               <div className="rounded-2xl border border-dashed border-black/15 bg-[#fafaf9] px-4 py-12 text-center text-sm text-zinc-500">Cargando usuarios...</div>
             ) : errorMessage ? (

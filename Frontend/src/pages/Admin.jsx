@@ -45,6 +45,7 @@ export default function Admin() {
   const [draftStocks, setDraftStocks] = useState({});
 
   const navigate = useNavigate();
+  const showManualClientControls = false;
 
   useEffect(() => {
     const session = getSession();
@@ -380,14 +381,14 @@ export default function Admin() {
                   <p className="text-[10px] uppercase tracking-widest text-zinc-500">Neon PostgreSQL</p>
                   <h2 className="mt-1.5 text-lg font-semibold sm:text-xl md:text-2xl">Clientes premium</h2>
                 </div>
-                {false && <button onClick={() => handleOpenForm()}
+                {showManualClientControls && <button onClick={() => handleOpenForm()}
                   className="flex items-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 sm:px-4 sm:py-2.5 sm:text-sm">
                   <PlusIcon /> Nuevo cliente
                 </button>}
               </div>
 
               {/* Formulario crear/editar */}
-              {false && showForm && (
+              {showManualClientControls && showForm && (
                 <div className="mb-6 rounded-2xl border border-black/10 bg-[#fafaf9] p-4 sm:rounded-3xl sm:p-5 md:p-6">
                   <h3 className="mb-4 text-sm font-semibold sm:text-base">
                     {editingCliente ? "Editar cliente" : "Nuevo cliente"}
@@ -439,7 +440,7 @@ export default function Admin() {
                           <p className="mt-1 text-sm font-semibold sm:text-base">{cliente.nombre}</p>
                           <p className="text-xs text-zinc-500">{cliente.email}</p>
                         </div>
-                        {false && <div className="flex gap-2">
+                        {showManualClientControls && <div className="flex gap-2">
                           <button onClick={() => handleOpenForm(cliente)}
                             className="flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-zinc-100">
                             <EditIcon /> Editar
