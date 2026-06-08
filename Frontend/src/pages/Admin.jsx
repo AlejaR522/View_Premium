@@ -41,6 +41,8 @@ export default function Admin() {
   const [savingCliente, setSavingCliente] = useState(false);
   const [deletingCliente, setDeletingCliente] = useState({});
   const [searchVenta, setSearchVenta] = useState("");
+  const [stockUpdating, setStockUpdating] = useState({});
+  const [draftStocks, setDraftStocks] = useState({});
 
   const navigate = useNavigate();
 
@@ -136,10 +138,65 @@ export default function Admin() {
     try {
       const data = await api("/premium/caja");
       setCaja(data);
+      const nextDrafts = {};
+      data.productos.forEach((producto) => {
+        nextDrafts[producto.id] = producto.stock ?? 5;
+      });
+      setDraftStocks(nextDrafts);
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingCaja(false);
+    }
+  };
+
+  const premiumStockProductos = (caja?.productos || []).filter((producto, index, list) => {
+    if (producto.nombre !== "Membresia Premium") {
+      return false;
+    }
+
+    return list.findIndex((item) => item.nombre === producto.nombre) === index;
+  });
+
+  const downloadBase64Pdf = (base64Data, filename) => {
+    const cleanedData = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
+    const binary = atob(cleanedData);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const anchor = document.createElement("a");
+    anchor.href = URL.createObjectURL(blob);
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(anchor.href);
+  };
+
+  const handleUpdateStock = async (producto) => {
+    const nextStock = Number(draftStocks[producto.id]);
+    if (Number.isNaN(nextStock) || nextStock < 0) {
+      alert("El stock no puede ser negativo.");
+      return;
+    }
+
+    setStockUpdating(prev => ({ ...prev, [producto.id]: true }));
+    try {
+      const updated = await api(`/premium/productos/${producto.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ stock: nextStock }),
+      });
+
+      setCaja(prev => prev ? {
+        ...prev,
+        productos: prev.productos.map(item => item.id === updated.id ? updated : item),
+      } : prev);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setStockUpdating(prev => ({ ...prev, [producto.id]: false }));
     }
   };
 
@@ -412,6 +469,33 @@ export default function Admin() {
                             <p className="mt-0.5 text-xs text-zinc-700">{cliente.direccion}</p>
                           </div>
                         )}
+                        {cliente.cedula && (
+                          <div className="rounded-lg border border-black/10 bg-[#f7f7f5] p-2.5">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Número de documento</p>
+                            <p className="mt-0.5 text-xs text-zinc-700">{cliente.cedula}</p>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-end gap-2 mt-2">
+                          {cliente.rut_pdf_data && (
+                            <button
+                              type="button"
+                              onClick={() => downloadBase64Pdf(cliente.rut_pdf_data, `rut-${cliente.user_id || cliente.id}.pdf`)}
+                              className="rounded-full bg-black text-white px-3 py-1.5 text-xs font-semibold transition hover:bg-zinc-800 border border-black"
+                            >
+                              Descargar RUT
+                            </button>
+                          )}
+                          {cliente.fact_pdf && (
+                            <a
+                              href={`http://localhost:5000/facturas/${cliente.fact_pdf}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full bg-black text-white px-3 py-1.5 text-xs font-semibold transition hover:bg-zinc-800 border border-black"
+                            >
+                              Descargar factura
+                            </a>
+                          )}
+                        </div>
                         {cliente.notas && (
                           <div className="rounded-lg border border-black/10 bg-[#f7f7f5] p-2.5 sm:col-span-2 lg:col-span-3">
                             <p className="text-[10px] uppercase tracking-wider text-zinc-500">Notas</p>
@@ -457,12 +541,37 @@ export default function Admin() {
                   <div className="rounded-2xl border border-black/10 bg-white p-4">
                     <h3 className="text-sm font-semibold">Stock de membresias</h3>
                     <div className="mt-3 grid gap-2">
-                      {caja.productos.map(producto => (
-                        <div key={producto.id} className="rounded-xl border border-black/10 bg-[#f7f7f5] p-3 text-sm">
-                          <p className="font-semibold">{producto.nombre}</p>
-                          <p className="mt-1 text-xs text-zinc-600">Precio: ${producto.precio} | Stock: {producto.stock}</p>
+                      {premiumStockProductos.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-black/10 bg-[#fafaf9] px-3 py-4 text-sm text-zinc-500">
+                          No hay membresía premium configurada en el inventario.
                         </div>
-                      ))}
+                      ) : (
+                        premiumStockProductos.map(producto => (
+                          <div key={producto.id} className="rounded-xl border border-black/10 bg-[#f7f7f5] p-3 text-sm">
+                            <p className="font-semibold">{producto.nombre}</p>
+                            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-xs text-zinc-600">Precio: ${producto.precio}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={draftStocks[producto.id] ?? producto.stock ?? 5}
+                                  onChange={(e) => setDraftStocks(prev => ({ ...prev, [producto.id]: e.target.value }))}
+                                  className="w-24 rounded-full border border-black/10 px-3 py-2 text-xs outline-none focus:border-black"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStock(producto)}
+                                  disabled={stockUpdating[producto.id]}
+                                  className="rounded-full bg-black px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-70"
+                                >
+                                  {stockUpdating[producto.id] ? "Guardando..." : "Guardar stock"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                   
