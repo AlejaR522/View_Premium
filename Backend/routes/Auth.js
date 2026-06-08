@@ -19,7 +19,8 @@ const ensureAuthSchema = () => {
         ADD COLUMN IF NOT EXISTS verification_token TEXT,
         ADD COLUMN IF NOT EXISTS reset_token TEXT,
         ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP,
-        ADD COLUMN IF NOT EXISTS perfil_bg_color TEXT DEFAULT '#000000';
+        ADD COLUMN IF NOT EXISTS perfil_bg_color TEXT DEFAULT '#000000',
+        ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP;
       ALTER TABLE users
         ALTER COLUMN email_verificado SET DEFAULT false;
     `);
@@ -310,6 +311,8 @@ router.post('/login', async (req, res) => {
       { expiresIn: '8h' }
     );
 
+    const premiumIsActive = Boolean(user.es_premium) && (!user.premium_until || new Date(user.premium_until) > new Date());
+
     res.json({
       token,
       user: {
@@ -317,10 +320,11 @@ router.post('/login', async (req, res) => {
         nombre: user.nombre,
         email: user.email,
         rol: user.rol,
-        es_premium: user.es_premium,
+        es_premium: premiumIsActive,
         avatar_url: user.avatar_url,
         descripcion: user.descripcion,
         perfil_bg_color: user.perfil_bg_color,
+        premium_until: user.premium_until,
       },
     });
   } catch (err) {
@@ -434,7 +438,11 @@ router.post('/reset-password/:token', async (req, res) => {
 router.get('/usuarios', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color, create_at FROM users ORDER BY create_at DESC'
+      `SELECT id, nombre, email, rol,
+              CASE WHEN es_premium = true AND (premium_until IS NULL OR premium_until > NOW()) THEN true ELSE false END AS es_premium,
+              avatar_url, descripcion, perfil_bg_color, premium_until, create_at
+       FROM users
+       ORDER BY create_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
@@ -445,7 +453,10 @@ router.get('/usuarios', async (req, res) => {
 router.get('/usuarios/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color FROM users WHERE id = $1',
+      `SELECT id, nombre, email, rol,
+              CASE WHEN es_premium = true AND (premium_until IS NULL OR premium_until > NOW()) THEN true ELSE false END AS es_premium,
+              avatar_url, descripcion, perfil_bg_color, premium_until
+       FROM users WHERE id = $1`,
       [req.params.id]
     );
     if (result.rows.length === 0) {

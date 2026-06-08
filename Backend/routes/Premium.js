@@ -14,6 +14,8 @@ const ensurePremiumSchema = () => {
     premiumSchemaReady = pool.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS perfil_bg_color TEXT DEFAULT '#000000';
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP;
 
       ALTER TABLE clientes
         ADD COLUMN IF NOT EXISTS fact_pdf TEXT;
@@ -48,14 +50,17 @@ const ensurePremiumSchema = () => {
       );
 
       INSERT INTO productos (nombre, precio, stock)
-      VALUES ('Membresia Premium', 25000, 20)
-      ON CONFLICT (nombre) DO NOTHING;
+      VALUES ('Membresia Premium', 29000, 5)
+      ON CONFLICT (nombre) DO UPDATE
+      SET precio = EXCLUDED.precio,
+          stock = CASE WHEN productos.stock <= 0 THEN EXCLUDED.stock ELSE productos.stock END;
     `);
   }
   return premiumSchemaReady;
 };
 
 const isHexColor = (color) => /^#[0-9a-fA-F]{6}$/.test(color || '');
+const isPremiumActive = (user) => Boolean(user?.es_premium) && (!user?.premium_until || new Date(user.premium_until) > new Date());
 
 const requireAdmin = async (userId, res) => {
   const result = await pool.query('SELECT rol FROM users WHERE id = $1', [userId]);
@@ -74,12 +79,41 @@ router.post('/activar', auth, async (req, res) => {
     await ensurePremiumSchema();
 
     const userResult = await pool.query(
-      'SELECT id, es_premium FROM users WHERE id = $1',
+      `SELECT id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color, premium_until
+       FROM users
+       WHERE id = $1`,
       [userId]
     );
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-    if (user.es_premium) return res.status(400).json({ error: 'Ya tienes premium activo' });
+
+    const premiumUntil = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    const normalizedCedula = String(cedula || '').trim();
+    const normalizedTelefono = String(telefono || '').trim();
+    const normalizedDireccion = String(direccion || '').trim();
+
+    if (!isPremiumActive(user)) {
+      if (!/^[0-9]+$/.test(normalizedCedula)) {
+        return res.status(400).json({ error: 'La cédula debe contener solo números.' });
+      }
+      if (!/^[0-9]+$/.test(normalizedTelefono)) {
+        return res.status(400).json({ error: 'El teléfono debe contener solo números.' });
+      }
+      if (!normalizedDireccion || !rut_pdf_data) {
+        return res.status(400).json({ error: 'La dirección, el RUT y los datos obligatorios son requeridos.' });
+      }
+    }
+
+    if (isPremiumActive(user)) {
+      return res.json({
+        mensaje: 'Ya tienes premium activo. Tu membresía dura 10 días.',
+        user: {
+          ...user,
+          premium_until: user.premium_until,
+          es_premium: true,
+        },
+      });
+    }
 
     const producto = await pool.query(
       'SELECT * FROM productos WHERE nombre = $1',
@@ -99,7 +133,7 @@ router.post('/activar', auth, async (req, res) => {
         `INSERT INTO clientes (user_id, cedula, telefono, direccion, rut_pdf_url, rut_pdf_data)
           VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [userId, cedula || null, telefono || null, direccion || null, rut_pdf_url || null, rut_pdf_data || null]
+        [userId, normalizedCedula, normalizedTelefono, normalizedDireccion, rut_pdf_url || null, rut_pdf_data || null]
       );
 
       const numeroFactura = `FACT-${Date.now()}-${userId}`;
@@ -117,18 +151,19 @@ router.post('/activar', auth, async (req, res) => {
       const updatedUser = await client.query(
         `UPDATE users
           SET es_premium = true,
-            perfil_bg_color = $1
-          WHERE id = $2
-          RETURNING id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color`,
-        [color, userId]
+            perfil_bg_color = $1,
+            premium_until = $2
+          WHERE id = $3
+          RETURNING id, nombre, email, rol, es_premium, avatar_url, descripcion, perfil_bg_color, premium_until`,
+        [color, premiumUntil, userId]
       );
-      const fecha = new Date().toLocaleDateString("es-CO");
+      const fecha = new Date().toLocaleDateString('es-CO');
 
       const nombreFactura = `factura_${userId}_${Date.now()}.pdf`;
 
       const rutaFactura = path.join(
         __dirname,
-        "../uploads/facturas",
+        '../uploads/facturas',
         nombreFactura
       );
 
@@ -136,26 +171,26 @@ router.post('/activar', auth, async (req, res) => {
 
       doc.pipe(fs.createWriteStream(rutaFactura));
 
-      doc.fontSize(24).text("VIEW APP", {
-        align: "center",
+      doc.fontSize(24).text('VIEW APP', {
+        align: 'center',
       });
 
       doc.moveDown();
 
-      doc.fontSize(18).text("FACTURA PREMIUM", {
-        align: "center",
+      doc.fontSize(18).text('FACTURA PREMIUM', {
+        align: 'center',
       });
 
       doc.moveDown(2);
 
-      doc.fontSize(12).text(`Cedula: ${cedula}`);
-      doc.text(`Telefono: ${telefono}`);
-      doc.text(`Direccion: ${direccion}`);
+      doc.fontSize(12).text(`Cedula: ${normalizedCedula}`);
+      doc.text(`Telefono: ${normalizedTelefono}`);
+      doc.text(`Direccion: ${normalizedDireccion}`);
       doc.text(`Fecha activacion: ${fecha}`);
 
       doc.moveDown(2);
 
-      doc.fontSize(14).text("Membresia Premium activada correctamente.");
+      doc.fontSize(14).text('Membresia Premium activada correctamente.');
 
       doc.end();
 
@@ -171,7 +206,7 @@ router.post('/activar', auth, async (req, res) => {
       await client.query('COMMIT');
 
       res.json({
-        mensaje: 'Premium activado',
+        mensaje: 'Premium activado. Tu membresía dura 10 días.',
         numero_factura: numeroFactura,
         precio: producto.rows[0].precio,
         fact_pdf: nombreFactura,
@@ -184,7 +219,86 @@ router.post('/activar', auth, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    console.error("ERROR PREMIUM:", err);
+    console.error('ERROR PREMIUM:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/mis-datos', auth, async (req, res) => {
+  try {
+    await ensurePremiumSchema();
+
+    const result = await pool.query(`
+      SELECT u.id AS user_id, u.nombre, u.email, u.es_premium, u.perfil_bg_color, u.premium_until,
+             c.id AS cliente_id, c.cedula, c.telefono, c.direccion, c.rut_pdf_data, c.fact_pdf, c.create_at
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM clientes
+        WHERE user_id = u.id
+        ORDER BY create_at DESC
+        LIMIT 1
+      ) c ON true
+      WHERE u.id = $1
+    `, [req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/mi-cliente', auth, async (req, res) => {
+  const { cedula, telefono, direccion, rut_pdf_data, perfil_bg_color } = req.body;
+
+  try {
+    await ensurePremiumSchema();
+
+    const normalizedCedula = cedula ? String(cedula).trim() : null;
+    const normalizedTelefono = telefono ? String(telefono).trim() : null;
+    const normalizedDireccion = direccion ? String(direccion).trim() : null;
+
+    if (normalizedCedula && !/^[0-9]+$/.test(normalizedCedula)) {
+      return res.status(400).json({ error: 'La cédula debe contener solo números.' });
+    }
+    if (normalizedTelefono && !/^[0-9]+$/.test(normalizedTelefono)) {
+      return res.status(400).json({ error: 'El teléfono debe contener solo números.' });
+    }
+    if (!normalizedDireccion) {
+      return res.status(400).json({ error: 'La dirección es requerida.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE clientes
+         SET cedula = COALESCE($1, cedula),
+             telefono = COALESCE($2, telefono),
+             direccion = COALESCE($3, direccion),
+             rut_pdf_data = CASE WHEN $4 IS NULL THEN rut_pdf_data ELSE $4 END
+       WHERE user_id = $5
+       RETURNING *`,
+      [normalizedCedula, normalizedTelefono, normalizedDireccion, rut_pdf_data ?? null, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontró el cliente premium.' });
+    }
+
+    if (perfil_bg_color && isHexColor(perfil_bg_color)) {
+      await pool.query(
+        `UPDATE users SET perfil_bg_color = $1 WHERE id = $2`,
+        [perfil_bg_color, req.user.id]
+      );
+    }
+
+    res.json({
+      mensaje: 'Datos premium actualizados correctamente.',
+      cliente: result.rows[0],
+    });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -197,6 +311,7 @@ router.get('/clientes', auth, async (req, res) => {
     const result = await pool.query(`
       SELECT u.id AS user_id, u.nombre, u.email, u.avatar_url, u.perfil_bg_color,
             u.es_premium, c.id, c.cedula, c.telefono, c.direccion, c.rut_pdf_url,
+            c.rut_pdf_data, c.fact_pdf,
             c.rut_pdf_data IS NOT NULL AS tiene_rut_pdf,
             c.create_at, v.precio_pagado, v.numero_factura, v.fecha
       FROM users u
@@ -262,6 +377,10 @@ router.put('/productos/:id', auth, async (req, res) => {
   try {
     await ensurePremiumSchema();
     if (!(await requireAdmin(req.user.id, res))) return;
+
+    if (stock !== undefined && (Number.isNaN(Number(stock)) || Number(stock) < 0)) {
+      return res.status(400).json({ error: 'El stock no puede ser negativo.' });
+    }
 
     const result = await pool.query(
       `UPDATE productos
